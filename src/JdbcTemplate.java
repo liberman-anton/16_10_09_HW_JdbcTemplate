@@ -1,4 +1,5 @@
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.sql.*;
 import java.util.*;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -82,10 +83,29 @@ public class JdbcTemplate<T> {
 		Field[] fields = obj.getClass().getDeclaredFields();
 		for(Field field : fields){
 			String key = field.getName();
-			Object value = obj.getClass().getDeclaredMethod(getGetMethodName(key), parameterTypes);
+			Object value = proceed(obj,getGetMethodName(key));
 			resMap.put(key, value);
 		}
 		
 		return resMap;
+	}
+	private String getGetMethodName(String name) {
+		String res = null;
+		char firstLetter = Character.toUpperCase(name.charAt(0));
+		return "get" + firstLetter + name.substring(1);
+	}
+
+	private static Object proceed(Object obj, String name) {
+		Object res = null;
+		Class objClass = obj.getClass();
+		Method method = null;
+		try {
+			method = objClass.getDeclaredMethod(name);
+			res = method.invoke(obj);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return res;
 	}
 }
