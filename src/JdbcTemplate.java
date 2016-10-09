@@ -1,3 +1,4 @@
+import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.*;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -16,7 +17,6 @@ public class JdbcTemplate<T> {
 	public T getObject(ResultSet rs) throws Exception{
 		LinkedHashMap<String,Object> map = getMapFromRs(rs);
 		return getT(map);
-//		return map.toString();
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -33,31 +33,59 @@ public class JdbcTemplate<T> {
 				String key = rs.getMetaData().getColumnName(i);
 				Object value = rs.getObject(i);
 				resMap.put(key, value);
-//				System.out.println(key + value);
 			} 
 		}
 		return resMap;
 	}
 
 	public String getInsertStatement(T obj) throws Exception{
-		String res = "(";
+		StringBuilder res = new StringBuilder("(");
 		LinkedHashMap<String,Object> map = (LinkedHashMap<String,Object>) getMap(obj);
-		for(String key : map.keySet()){
-			res += key + ',';
+		Iterator<String> it = map.keySet().iterator();
+		if(it.hasNext()){
+			res.append(it.next());
 		}
-		res += TYPE + ") VALUES(";
-		for(Object value : map.values()){
-			res += value.toString() + ',';
+		while(it.hasNext()){	
+			res.append(',').append(it.next());
 		}
-		res += obj.getClass().getName() + ")";
+		res.append(") VALUES(");
+		
+		Iterator<Object> itValues = map.values().iterator();
+		if(itValues.hasNext()){
+			res.append(getValue(itValues.next()));
+		}
+		while(itValues.hasNext()){
+			res.append(',').append(getValue(itValues.next()));
+		}
+		res.append(")");
+		return res.toString();
+	}
+	
+	private String getValue(Object value) {
+		if(value.getClass() == String.class)
+			return "'" + value + "'";
+		else
+			return value.toString();
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> getMap(T obj) throws Exception {
+		String json = mapper.writeValueAsString(obj);
+		Map<String, Object> res = mapper.readValue(json, Map.class);
+		res.put(TYPE, obj.getClass().getName());
 		return res;
 	}
 	
-	@SuppressWarnings("unchecked")
-	private Map<String, Object> getMap(Object obj) throws Exception {
-		String json = mapper.writeValueAsString(obj);
-		Map<String, Object> res = mapper.readValue(json, Map.class);
-		//res.put(TYPE, obj.getClass().getName());
-		return res;
+	public Map<String, Object> getMapFromObj(Object obj) throws Exception{
+		Map<String, Object> resMap = new LinkedHashMap<>(); 
+		
+		Field[] fields = obj.getClass().getDeclaredFields();
+		for(Field field : fields){
+			String key = field.getName();
+			Object value = obj.getClass().getDeclaredMethod(getGetMethodName(key), parameterTypes);
+			resMap.put(key, value);
+		}
+		
+		return resMap;
 	}
 }
